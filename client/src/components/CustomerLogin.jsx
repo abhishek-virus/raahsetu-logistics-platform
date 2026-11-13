@@ -2,7 +2,11 @@
 import { useState } from "react";
 import { requestOtpApi } from "../services/api";
 
-export default function CustomerLogin({ onOtpSent }) {
+export default function CustomerLogin({
+  onOtpSent,
+  onDriverLogin,
+  onStaffLogin,
+}) {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,24 +40,35 @@ export default function CustomerLogin({ onOtpSent }) {
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-card">
+    <main className="auth-page customer-login-page">
+      <section className="auth-card customer-login-card">
+
         <div className="brand auth-brand">
           <span className="brand-mark">R</span>
           <span>RaahSetu</span>
         </div>
 
-        <p className="eyebrow">LOGISTICS, CONNECTED</p>
-        <h1>Your journey starts here.</h1>
-        <p className="auth-description">
-          Enter your mobile number to continue with your transport journey.
-        </p>
+        <div className="customer-login-intro">
+          <p className="eyebrow">LOGISTICS, CONNECTED</p>
+
+          <h1>
+            Your journey
+            <br />
+            starts here.
+          </h1>
+
+          <p className="auth-description">
+            Move your goods with confidence. Enter your mobile number
+            to get started with RaahSetu.
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="phone">Mobile number</label>
 
           <div className="phone-input">
             <span>+91</span>
+
             <input
               id="phone"
               type="tel"
@@ -70,16 +85,69 @@ export default function CustomerLogin({ onOtpSent }) {
             />
           </div>
 
-          {error && <p className="error" role="alert">{error}</p>}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
 
-          <button className="btn-confirm" type="submit" disabled={loading}>
+          <button
+            className="btn-confirm"
+            type="submit"
+            disabled={loading}
+          >
             {loading ? "Sending OTP..." : "Continue with OTP"}
+            {!loading && <span className="login-button-arrow">→</span>}
           </button>
         </form>
+
+        <div className="login-security-note">
+          <span>🔒</span>
+          <p>Your mobile number is used for secure OTP verification.</p>
+        </div>
+
+        <div className="driver-login-divider">
+          <span></span>
+          <p>OR</p>
+          <span></span>
+        </div>
+
+        {/* Driver Portal */}
+        <button
+          type="button"
+          className="customer-driver-button"
+          onClick={onDriverLogin}
+        >
+          <span className="driver-button-icon">🚚</span>
+
+          <span>
+            <strong>Are you a driver?</strong>
+            <small>Continue to Driver Portal</small>
+          </span>
+
+          <span className="driver-button-arrow">→</span>
+        </button>
+
+        {/* Staff Portal */}
+        <button
+          type="button"
+          className="customer-driver-button"
+          onClick={onStaffLogin}
+        >
+          <span className="driver-button-icon">🛡️</span>
+
+          <span>
+            <strong>Are you a staff member?</strong>
+            <small>Continue to Staff Portal</small>
+          </span>
+
+          <span className="driver-button-arrow">→</span>
+        </button>
 
         <p className="auth-footnote">
           By continuing, you agree to use RaahSetu responsibly.
         </p>
+
       </section>
     </main>
   );

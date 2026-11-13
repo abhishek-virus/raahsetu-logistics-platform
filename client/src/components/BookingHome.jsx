@@ -7,6 +7,9 @@ export default function BookingHome({
   onConfirm,
   onLogout,
   onViewBookings,
+  onFinanceEnquiry,
+  onBuyVehicles,
+  onSellVehicle,
 }) {
   const [fromLocation, setFromLocation] = useState(
     booking?.fromLocation || ""
@@ -68,13 +71,29 @@ export default function BookingHome({
           >
             My bookings
           </button>
-          
+
           <button
             type="button"
-            className="logout-button"
-            onClick={onLogout}
+            className="finance-button"
+            onClick={onFinanceEnquiry}
           >
-            Log out
+            Finance & Insurance
+          </button>
+
+          <button
+            type="button"
+            className="finance-button"
+            onClick={onBuyVehicles}
+          >
+            Buy Vehicles
+          </button>
+
+          <button
+            type="button"
+            className="finance-button"
+            onClick={onSellVehicle}
+          >
+            Sell Vehicle
           </button>
         </div>
       </header>

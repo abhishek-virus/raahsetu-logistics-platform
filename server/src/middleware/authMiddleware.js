@@ -1,6 +1,10 @@
 
 const jwt = require("jsonwebtoken");
 
+const ALLOWED_ROLES = ["customer", "driver", "staff"];
+
+const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
+
 const authMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -33,12 +37,21 @@ const authMiddleware = (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET,
+      {
+        algorithms: ["HS256"],
+      }
+    );
 
     if (
+      !decoded ||
       typeof decoded !== "object" ||
+      Array.isArray(decoded) ||
       typeof decoded.id !== "string" ||
-      typeof decoded.role !== "string"
+      !OBJECT_ID_REGEX.test(decoded.id) ||
+      !ALLOWED_ROLES.includes(decoded.role)
     ) {
       return res.status(401).json({
         success: false,
@@ -48,12 +61,21 @@ const authMiddleware = (req, res, next) => {
 
     req.user = {
       id: decoded.id,
-      phone: decoded.phone,
       role: decoded.role,
+      phone: decoded.phone,
+      email: decoded.email,
     };
 
     return next();
   } catch (error) {
+    if (
+      error.name !== "JsonWebTokenError" &&
+      error.name !== "TokenExpiredError" &&
+      error.name !== "NotBeforeError"
+    ) {
+      console.error("Authentication middleware error:", error);
+    }
+
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token.",

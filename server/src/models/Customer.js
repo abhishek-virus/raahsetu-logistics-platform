@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const customerSchema = new mongoose.Schema(
@@ -5,7 +6,8 @@ const customerSchema = new mongoose.Schema(
     name: {
       type: String,
       trim: true,
-      default: "", // Removed 'required: true' so first-time OTP login works seamlessly
+      default: "",
+      maxlength: 100,
     },
 
     phone: {
@@ -19,17 +21,14 @@ const customerSchema = new mongoose.Schema(
       type: String,
       trim: true,
       lowercase: true,
+      default: "",
+      maxlength: 254,
     },
 
     role: {
       type: String,
+      enum: ["customer"],
       default: "customer",
-    },
-
-    // Optional: Add OTP fields if otpService doesn't use Redis/in-memory store
-    otp: {
-      code: String,
-      expiresAt: Date,
     },
   },
   {

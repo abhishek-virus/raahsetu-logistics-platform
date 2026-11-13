@@ -54,6 +54,7 @@ const bookingSchema = new mongoose.Schema(
       enum: ["mini-truck", "light-truck", "heavy-truck"],
     },
 
+    // Customer booking and delivery status
     status: {
       type: String,
       enum: [
@@ -65,6 +66,63 @@ const bookingSchema = new mongoose.Schema(
         "cancelled",
       ],
       default: "pending",
+    },
+
+    // Staff verification status
+    staffVerificationStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+      index: true,
+    },
+
+    verificationRemarks: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 500,
+    },
+
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Staff",
+      default: null,
+    },
+
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+
+    pickupConfirmedAt: {
+      type: Date,
+      default: null,
+    },
+
+    pickupConfirmedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Staff",
+      default: null,
+    },
+
+    pickupConfirmationRemarks: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 500,
+    },
+
+    // Driver assignment
+    assignedDriver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Driver",
+      default: null,
+      index: true,
+    },
+
+    assignedAt: {
+      type: Date,
+      default: null,
     },
   },
   {

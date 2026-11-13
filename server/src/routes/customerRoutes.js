@@ -1,16 +1,13 @@
 
 const express = require("express");
-const {
-  registerCustomer,
-} = require("../controllers/customerController");
 const Customer = require("../models/Customer");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// Restrict customer profile routes to customer accounts
+// Restrict customer profile routes to authenticated customers.
 function customerOnly(req, res, next) {
-  if (req.user.role !== "customer") {
+  if (!req.user || req.user.role !== "customer") {
     return res.status(403).json({
       success: false,
       message: "Customer access required.",
@@ -20,7 +17,7 @@ function customerOnly(req, res, next) {
   return next();
 }
 
-// Get logged-in customer's profile
+// Get logged-in customer's profile.
 router.get("/profile", authMiddleware, customerOnly, async (req, res) => {
   try {
     const customer = await Customer.findOne({
@@ -50,17 +47,21 @@ router.get("/profile", authMiddleware, customerOnly, async (req, res) => {
   }
 });
 
-// Update logged-in customer's profile
+// Update logged-in customer's profile.
 router.put("/profile", authMiddleware, customerOnly, async (req, res) => {
   try {
     const { name, email } = req.body || {};
     const updates = {};
 
     if (name !== undefined) {
-      if (typeof name !== "string" || !name.trim()) {
+      if (
+        typeof name !== "string" ||
+        !name.trim() ||
+        name.trim().length > 100
+      ) {
         return res.status(400).json({
           success: false,
-          message: "Name cannot be empty.",
+          message: "Enter a valid name (maximum 100 characters).",
         });
       }
 
@@ -68,7 +69,7 @@ router.put("/profile", authMiddleware, customerOnly, async (req, res) => {
     }
 
     if (email !== undefined) {
-      if (typeof email !== "string") {
+      if (typeof email !== "string" || email.trim().length > 150) {
         return res.status(400).json({
           success: false,
           message: "Invalid email.",
@@ -103,7 +104,10 @@ router.put("/profile", authMiddleware, customerOnly, async (req, res) => {
         role: "customer",
       },
       { $set: updates },
-      { new: true, runValidators: true }
+      {
+        new: true,
+        runValidators: true,
+      }
     ).select("-__v");
 
     if (!customer) {
@@ -128,7 +132,7 @@ router.put("/profile", authMiddleware, customerOnly, async (req, res) => {
   }
 });
 
-// Public registration endpoint
-router.post("/register", registerCustomer);
+// Customer registration is intentionally not exposed here.
+// Account creation happens only after successful OTP verification.
 
 module.exports = router;
