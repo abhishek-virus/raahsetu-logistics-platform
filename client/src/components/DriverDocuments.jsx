@@ -1,6 +1,10 @@
 
-import { useState } from "react";
-import { uploadDriverDocumentsApi } from "../services/api";
+import { useEffect, useState } from "react";
+
+import {
+  uploadDriverDocumentsApi,
+  getDriverProfileApi,
+} from "../services/api";
 
 const documentFields = [
   {
@@ -20,20 +24,76 @@ const documentFields = [
   },
 ];
 
+const emptyDocuments = {
+  license: null,
+  vehicleRC: null,
+  identity: null,
+};
+
 function DriverDocuments({ onComplete }) {
-  const [documents, setDocuments] = useState({
-    license: null,
-    vehicleRC: null,
-    identity: null,
+  const [documents, setDocuments] = useState({ ...emptyDocuments });
+  const [savedDocuments, setSavedDocuments] = useState({
+    ...emptyDocuments,
   });
 
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // =========================================
+  // RESTORE SAVED DOCUMENTS
+  // =========================================
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDriverDocuments() {
+      try {
+        const result = await getDriverProfileApi();
+
+        if (!result?.driver) {
+          throw new Error("Driver profile not found.");
+        }
+
+        if (!isMounted) return;
+
+        const saved = result.driver.documents || {};
+
+        setSavedDocuments({
+          license: saved.license || null,
+          vehicleRC: saved.vehicleRC || null,
+          identity: saved.identity || null,
+        });
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err.message || "Unable to load saved documents."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setFetching(false);
+        }
+      }
+    }
+
+    loadDriverDocuments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // =========================================
+  // FILE VALIDATION AND SELECTION
+  // =========================================
 
   function handleFileChange(e, key) {
     const file = e.target.files?.[0];
 
     setError("");
+    setSuccess("");
 
     if (!file) return;
 
@@ -60,9 +120,12 @@ function DriverDocuments({ onComplete }) {
       [key]: file,
     }));
 
-    // Allow selecting the same file again if needed.
     e.target.value = "";
   }
+
+  // =========================================
+  // REMOVE SELECTED FILE
+  // =========================================
 
   function removeDocument(key) {
     setDocuments((prev) => ({
@@ -71,37 +134,16 @@ function DriverDocuments({ onComplete }) {
     }));
 
     setError("");
+    setSuccess("");
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-
-    const missingDocument = documentFields.find(
-      (field) => !documents[field.key]
-    );
-
-    if (missingDocument) {
-      setError(`Please upload ${missingDocument.label}.`);
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const result = await uploadDriverDocumentsApi(documents);
-
-      if (onComplete) {
-        onComplete(result);
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  // =========================================
+  // FORMAT FILE SIZE
+  // =========================================
 
   function formatFileSize(size) {
+    if (!size) return "";
+
     if (size < 1024 * 1024) {
       return `${(size / 1024).toFixed(1)} KB`;
     }
@@ -109,9 +151,130 @@ function DriverDocuments({ onComplete }) {
     return `${(size / (1024 * 1024)).toFixed(2)} MB`;
   }
 
+  // =========================================
+  // DOCUMENT COMPLETION COUNT
+  // =========================================
+
+  function getUploadedCount(saved = savedDocuments) {
+    return documentFields.filter(
+      (field) => Boolean(saved[field.key]?.filename)
+    ).length;
+  }
+
+  // =========================================
+  // CHECK ALL DOCUMENTS
+  // =========================================
+
+  function areAllDocumentsUploaded(saved) {
+    return documentFields.every(
+      (field) => Boolean(saved[field.key]?.filename)
+    );
+  }
+
+  // =========================================
+  // SUBMIT DOCUMENTS
+  // =========================================
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+
+    setError("");
+    setSuccess("");
+
+    if (loading) return;
+
+    const hasNewFiles = Object.values(documents).some(Boolean);
+
+    // If all documents already exist and no replacement selected,
+    // allow the driver to return to dashboard.
+    if (!hasNewFiles) {
+      if (areAllDocumentsUploaded(savedDocuments)) {
+        onComplete?.({
+          documents: savedDocuments,
+          verificationStatus: "pending",
+        });
+        return;
+      }
+
+      setError("Please select at least one missing document.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Send only newly selected or replaced documents.
+      const filesToUpload = {};
+
+      for (const field of documentFields) {
+        if (documents[field.key]) {
+          filesToUpload[field.key] = documents[field.key];
+        }
+      }
+
+      const result = await uploadDriverDocumentsApi(filesToUpload);
+
+      if (!result) {
+        throw new Error("Invalid response received from server.");
+      }
+
+      // Preserve existing documents and merge uploaded documents.
+      const updatedDocuments = {
+        ...savedDocuments,
+        ...(result.documents || {}),
+      };
+
+      setSavedDocuments(updatedDocuments);
+      setDocuments({ ...emptyDocuments });
+
+      const allDocumentsUploaded =
+        areAllDocumentsUploaded(updatedDocuments);
+
+      if (allDocumentsUploaded) {
+        setSuccess("All documents uploaded successfully.");
+
+        onComplete?.({
+          ...result,
+          documents: updatedDocuments,
+        });
+      } else {
+        setSuccess(
+          "Documents saved successfully. Please upload the remaining documents."
+        );
+      }
+    } catch (err) {
+      setError(
+        err.message || "Unable to upload documents."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // =========================================
+  // LOADING SCREEN
+  // =========================================
+
+  if (fetching) {
+    return (
+      <div className="auth-page">
+        <section className="auth-card driver-registration-card">
+          <p>Loading your saved documents...</p>
+        </section>
+      </div>
+    );
+  }
+
+  const uploadedCount = getUploadedCount();
+
+  // =========================================
+  // MAIN UI
+  // =========================================
+
   return (
     <div className="auth-page">
       <section className="auth-card driver-registration-card">
+
         <div className="auth-brand">
           <span className="brand-mark">R</span>
           RaahSetu
@@ -125,31 +288,83 @@ function DriverDocuments({ onComplete }) {
 
         <p className="auth-description">
           Upload clear copies of your driving and identity documents.
+          You can upload or replace each document separately.
         </p>
 
+        {/* COMPLETION */}
+
+        <div className="driver-form-note">
+          Documents completed: {uploadedCount}/{documentFields.length}
+        </div>
+
+        <div className="driver-profile-main-progress">
+          <span
+            style={{
+              width: `${(uploadedCount / documentFields.length) * 100}%`,
+            }}
+          />
+        </div>
+
         <form onSubmit={handleSubmit}>
+
           {documentFields.map((field) => {
             const selectedFile = documents[field.key];
+            const savedFile = savedDocuments[field.key];
+
+            const isUploaded = Boolean(savedFile?.filename);
 
             return (
               <div
                 className="document-upload-field"
                 key={field.key}
               >
+
+                {/* DOCUMENT LABEL */}
+
                 <label>
                   {field.label}
-                  <span className="required-mark"> *</span>
+
+                  {!isUploaded && (
+                    <span className="required-mark"> *</span>
+                  )}
                 </label>
 
                 <p className="driver-form-note">
                   {field.description}
                 </p>
 
+                {/* SAVED DOCUMENT */}
+
+                {isUploaded && (
+                  <div className="document-selected">
+                    <div>
+                      <span>
+                        ✓ {savedFile.originalName || "Document uploaded"}
+                      </span>
+
+                      <small>
+                        {formatFileSize(savedFile.size)}
+                      </small>
+                    </div>
+
+                    <span className="document-status">
+                      Uploaded
+                    </span>
+                  </div>
+                )}
+
+                {/* FILE SELECTION OPTIONS */}
+
                 <div className="document-actions">
-                  {/* Choose PDF or Photo */}
+
                   <label className="document-option">
                     <span>📁</span>
-                    <span>Choose PDF / Photo</span>
+
+                    <span>
+                      {isUploaded
+                        ? "Replace PDF / Photo"
+                        : "Choose PDF / Photo"}
+                    </span>
 
                     <input
                       type="file"
@@ -161,7 +376,6 @@ function DriverDocuments({ onComplete }) {
                     />
                   </label>
 
-                  {/* Take Photo */}
                   <label className="document-option">
                     <span>📷</span>
                     <span>Take Photo</span>
@@ -176,14 +390,16 @@ function DriverDocuments({ onComplete }) {
                       disabled={loading}
                     />
                   </label>
+
                 </div>
 
-                {/* Selected Document */}
+                {/* NEWLY SELECTED FILE */}
+
                 {selectedFile && (
                   <div className="document-selected">
                     <div>
                       <span>
-                        ✓ {selectedFile.name}
+                        Selected: {selectedFile.name}
                       </span>
 
                       <small>
@@ -201,9 +417,12 @@ function DriverDocuments({ onComplete }) {
                     </button>
                   </div>
                 )}
+
               </div>
             );
           })}
+
+          {/* ERROR */}
 
           {error && (
             <p className="error" role="alert">
@@ -211,15 +430,28 @@ function DriverDocuments({ onComplete }) {
             </p>
           )}
 
+          {/* SUCCESS */}
+
+          {success && (
+            <p className="success-message" role="status">
+              {success}
+            </p>
+          )}
+
+          {/* SUBMIT */}
+
           <button
             type="submit"
             className="btn-confirm"
             disabled={loading}
           >
             {loading
-              ? "Uploading Documents..."
-              : "Upload & Continue"}
+              ? "Saving Documents..."
+              : uploadedCount === documentFields.length
+                ? "Continue"
+                : "Save Documents"}
           </button>
+
         </form>
 
         <p className="driver-form-note">
@@ -229,6 +461,7 @@ function DriverDocuments({ onComplete }) {
         <p className="auth-footnote">
           Your documents will be reviewed by the RaahSetu verification team.
         </p>
+
       </section>
     </div>
   );

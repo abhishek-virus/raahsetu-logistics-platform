@@ -68,10 +68,13 @@ function getStoredFilePath(directory, filename) {
 // UPLOAD DRIVER DOCUMENTS
 // =====================================
 
+
 async function uploadDriverDocuments(req, res) {
+  const uploadedFiles = req.files || {};
+
   try {
     if (!req.user) {
-      await cleanupFiles(req.files);
+      await cleanupFiles(uploadedFiles);
 
       return res.status(401).json({
         success: false,
@@ -80,7 +83,7 @@ async function uploadDriverDocuments(req, res) {
     }
 
     if (req.user.role !== "driver") {
-      await cleanupFiles(req.files);
+      await cleanupFiles(uploadedFiles);
 
       return res.status(403).json({
         success: false,
@@ -88,20 +91,32 @@ async function uploadDriverDocuments(req, res) {
       });
     }
 
-    const uploadedFiles = req.files || {};
-
-    const allRequiredFilesPresent = DOCUMENT_KEYS.every(
-      (key) =>
-        Array.isArray(uploadedFiles[key]) &&
-        uploadedFiles[key].length === 1
+    // At least one document must be uploaded.
+    const uploadedKeys = Object.keys(uploadedFiles).filter(
+      (key) => Array.isArray(uploadedFiles[key]) &&
+        uploadedFiles[key].length > 0
     );
 
-    if (!allRequiredFilesPresent) {
+    if (uploadedKeys.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select at least one document.",
+      });
+    }
+
+    // Validate document field names and file count.
+    const invalidKeys = uploadedKeys.some(
+      (key) =>
+        !DOCUMENT_KEYS.includes(key) ||
+        uploadedFiles[key].length !== 1
+    );
+
+    if (invalidKeys) {
       await cleanupFiles(uploadedFiles);
 
       return res.status(400).json({
         success: false,
-        message: "Please upload all three required documents.",
+        message: "Invalid document upload. Upload one file per document type.",
       });
     }
 
@@ -116,12 +131,23 @@ async function uploadDriverDocuments(req, res) {
       });
     }
 
-    const documentData = {};
+    // Ensure documents object exists.
+    if (!driver.documents) {
+      driver.documents = {};
+    }
+
+    // Preserve all previously uploaded documents.
+    const previousFilenames = {};
 
     for (const key of DOCUMENT_KEYS) {
+      previousFilenames[key] = driver.documents?.[key]?.filename;
+    }
+
+    // Update only the documents uploaded in this request.
+    for (const key of uploadedKeys) {
       const file = uploadedFiles[key][0];
 
-      documentData[key] = {
+      driver.documents[key] = {
         originalName: file.originalname,
         filename: file.filename,
         mimeType: file.mimetype,
@@ -129,24 +155,20 @@ async function uploadDriverDocuments(req, res) {
       };
     }
 
-    // Preserve previous document metadata until the new save succeeds.
-    const previousDocuments = driver.documents;
-
-    driver.documents = documentData;
+    // New or replaced documents require fresh staff verification.
     driver.verificationStatus = "pending";
-
-    // Reset previous verification decision.
     driver.verificationRemarks = "";
     driver.verifiedBy = null;
     driver.verifiedAt = null;
 
     await driver.save();
 
-    // Delete old document files only after successful database save.
-    if (previousDocuments) {
-      for (const key of DOCUMENT_KEYS) {
-        const oldFilename = previousDocuments[key]?.filename;
+    // Delete only the replaced files after successful database save.
+    for (const key of uploadedKeys) {
+      const oldFilename = previousFilenames[key];
+      const newFilename = driver.documents[key]?.filename;
 
+      if (oldFilename && oldFilename !== newFilename) {
         const oldPath = getStoredFilePath(
           uploadDirectory,
           oldFilename
@@ -162,11 +184,16 @@ async function uploadDriverDocuments(req, res) {
       success: true,
       message: "Driver documents uploaded successfully.",
       verificationStatus: driver.verificationStatus,
+      documents: {
+        license: driver.documents?.license || null,
+        vehicleRC: driver.documents?.vehicleRC || null,
+        identity: driver.documents?.identity || null,
+      },
     });
   } catch (error) {
     console.error("Driver document upload error:", error);
 
-    await cleanupFiles(req.files);
+    await cleanupFiles(uploadedFiles);
 
     if (error.name === "ValidationError") {
       return res.status(400).json({
@@ -181,6 +208,7 @@ async function uploadDriverDocuments(req, res) {
     });
   }
 }
+
 
 // =====================================
 // UPLOAD DRIVER PROFILE PHOTO

@@ -87,6 +87,15 @@ export function verifyOtpApi(phone, otp) {
   });
 }
 
+// Get logged-in customer profile
+export function getCustomerProfileApi() {
+  return apiRequest("/customer/profile", {
+    method: "GET",
+    auth: true,
+    tokenType: "customer",
+  });
+}
+
 // =====================================
 // PHASE 2: CUSTOMER BOOKING APIs
 // =====================================
@@ -226,6 +235,7 @@ export async function uploadDriverProfilePhotoApi(photo) {
 }
 
 // Upload driver verification documents
+
 export async function uploadDriverDocumentsApi(documents) {
   const token = localStorage.getItem("driverToken");
 
@@ -235,9 +245,20 @@ export async function uploadDriverDocumentsApi(documents) {
 
   const formData = new FormData();
 
-  formData.append("license", documents.license);
-  formData.append("vehicleRC", documents.vehicleRC);
-  formData.append("identity", documents.identity);
+  const allowedKeys = ["license", "vehicleRC", "identity"];
+
+  // Append only newly selected files.
+  for (const key of allowedKeys) {
+    const file = documents[key];
+
+    if (file instanceof File) {
+      formData.append(key, file);
+    }
+  }
+
+  if ([...formData.keys()].length === 0) {
+    throw new Error("Please select at least one document.");
+  }
 
   let response;
 
@@ -267,6 +288,7 @@ export async function uploadDriverDocumentsApi(documents) {
 
   return data;
 }
+
 
 // =====================================
 // PHASE 4: DRIVER LOAD APIs

@@ -115,7 +115,7 @@ function StaffVehicleInterests({ onBack }) {
             <h2>No Buyer Interests Yet</h2>
             <p>
               Interested buyers will appear here when they contact
-              Transmaa through a vehicle listing.
+              RaahSetu through a vehicle listing.
             </p>
           </div>
         ) : (

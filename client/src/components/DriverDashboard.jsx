@@ -14,6 +14,9 @@ export default function DriverDashboard({
   onFinanceEnquiry,
   onBuyVehicles,
   onSellVehicle,
+  onEditPersonalInfo,
+  onEditVehicleDetails,
+  onEditDocuments,
 }) {
   const [activeTab, setActiveTab] = useState("available");
   const [availableLoads, setAvailableLoads] = useState([]);
@@ -25,18 +28,79 @@ export default function DriverDashboard({
 
   const isApproved = driver?.verificationStatus === "approved";
 
+  // =========================================
+  // PROFILE COMPLETION
+  // =========================================
+
+  const documents = driver?.documents || {};
+
+  const personalFields = [
+    Boolean(driver?.name?.trim()),
+    Boolean(driver?.email?.trim()),
+    Boolean(driver?.address?.trim()),
+  ];
+
+  const vehicleFields = [
+    driver?.experienceYears != null,
+    Boolean(driver?.vehicleType),
+    Boolean(driver?.vehicleModel?.trim()),
+    Boolean(driver?.vehicleNumber?.trim()),
+    Boolean(driver?.licenseNumber?.trim()),
+  ];
+
+  const documentFields = [
+    Boolean(documents.license?.filename),
+    Boolean(documents.vehicleRC?.filename),
+    Boolean(documents.identity?.filename),
+  ];
+
+  const personalCompleted = personalFields.every(Boolean);
+  const vehicleCompleted = vehicleFields.every(Boolean);
+  const documentsCompleted = documentFields.every(Boolean);
+
+  const completedFields = [
+    ...personalFields,
+    ...vehicleFields,
+    ...documentFields,
+  ].filter(Boolean).length;
+
+  const totalFields = 11;
+
+  const completionPercentage = Math.round(
+    (completedFields / totalFields) * 100
+  );
+
+  const profileComplete = completionPercentage === 100;
+
+  // =========================================
+  // LOAD DASHBOARD DATA
+  // =========================================
+
   async function loadDashboard() {
     try {
       setLoading(true);
       setError("");
 
-      const [availableData, myLoadsData] = await Promise.all([
+      const results = await Promise.allSettled([
         getAvailableLoadsApi(),
         getMyLoadsApi(),
       ]);
 
-      setAvailableLoads(availableData.loads || []);
-      setMyLoads(myLoadsData.loads || []);
+      if (results[0].status === "fulfilled") {
+        setAvailableLoads(results[0].value.loads || []);
+      } else {
+        setAvailableLoads([]);
+      }
+
+      if (results[1].status === "fulfilled") {
+        setMyLoads(results[1].value.loads || []);
+      } else {
+        setMyLoads([]);
+      }
+
+      if (results.some((result) => result.status === "rejected")) {
+        setError("Some dashboard data could not be loaded. Please refresh.");
+      }
     } catch (err) {
       setError(err.message || "Unable to load dashboard.");
     } finally {
@@ -48,7 +112,16 @@ export default function DriverDashboard({
     loadDashboard();
   }, []);
 
+  // =========================================
+  // ACCEPT LOAD
+  // =========================================
+
   async function handleAcceptLoad(bookingId) {
+    if (!isApproved) {
+      setError("Your account must be approved before accepting loads.");
+      return;
+    }
+
     try {
       setActionLoading(bookingId);
       setError("");
@@ -66,7 +139,16 @@ export default function DriverDashboard({
     }
   }
 
+  // =========================================
+  // UPDATE DELIVERY STATUS
+  // =========================================
+
   async function handleStatusUpdate(bookingId, status) {
+    if (!isApproved) {
+      setError("Your account must be approved first.");
+      return;
+    }
+
     try {
       setActionLoading(bookingId);
       setError("");
@@ -83,6 +165,10 @@ export default function DriverDashboard({
     }
   }
 
+  // =========================================
+  // DATE FORMAT
+  // =========================================
+
   function formatDate(date) {
     if (!date) return "Not available";
 
@@ -98,6 +184,65 @@ export default function DriverDashboard({
       year: "numeric",
     });
   }
+
+  // =========================================
+  // PROFILE SECTION CARD
+  // =========================================
+
+  function renderProfileSection({
+    title,
+    description,
+    completed,
+    completedCount,
+    totalCount,
+    onEdit,
+  }) {
+    return (
+      <article className="driver-profile-section">
+        <div className="driver-profile-section-info">
+          <div>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </div>
+
+          <span
+            className={`driver-profile-status ${
+              completed ? "completed" : "incomplete"
+            }`}
+          >
+            {completed ? "Completed" : "Incomplete"}
+          </span>
+        </div>
+
+        <div className="driver-profile-section-progress">
+          <div className="driver-profile-progress-track">
+            <span
+              style={{
+                width: `${(completedCount / totalCount) * 100}%`,
+              }}
+            />
+          </div>
+
+          <span>
+            {completedCount}/{totalCount} completed
+          </span>
+        </div>
+
+        <button
+          type="button"
+          className="driver-profile-edit-btn"
+          onClick={onEdit}
+          disabled={!onEdit}
+        >
+          {completed ? "Edit Details →" : "Complete Now →"}
+        </button>
+      </article>
+    );
+  }
+
+  // =========================================
+  // LOAD CARD
+  // =========================================
 
   function renderLoadCard(load, isMyLoad = false) {
     const pickupConfirmed = Boolean(load.pickupConfirmedAt);
@@ -236,6 +381,10 @@ export default function DriverDashboard({
     );
   }
 
+  // =========================================
+  // MAIN RENDER
+  // =========================================
+
   return (
     <main className="driver-dashboard-page">
       <header className="driver-dashboard-header">
@@ -250,6 +399,9 @@ export default function DriverDashboard({
       </header>
 
       <section className="driver-dashboard-content">
+
+        {/* WELCOME */}
+
         <div className="driver-dashboard-welcome">
           <div>
             <p>DRIVER DASHBOARD</p>
@@ -266,13 +418,96 @@ export default function DriverDashboard({
           </span>
         </div>
 
+        {/* PROFILE COMPLETION */}
+
+        <section className="driver-profile-completion">
+          <div className="driver-profile-completion-header">
+            <div>
+              <p className="driver-profile-eyebrow">
+                YOUR PROFILE
+              </p>
+
+              <h2>Profile Completion</h2>
+
+              <p>
+                Complete your details and documents to finish your
+                driver registration.
+              </p>
+            </div>
+
+            <div className="driver-profile-percentage">
+              <strong>{completionPercentage}%</strong>
+              <span>Completed</span>
+            </div>
+          </div>
+
+          <div className="driver-profile-main-progress">
+            <span
+              style={{ width: `${completionPercentage}%` }}
+            />
+          </div>
+
+          <div className="driver-profile-count">
+            {completedFields} of {totalFields} required fields completed
+          </div>
+
+          <div className="driver-profile-sections">
+            {renderProfileSection({
+              title: "Personal Information",
+              description:
+                "Name, email address and residential address.",
+              completed: personalCompleted,
+              completedCount: personalFields.filter(Boolean).length,
+              totalCount: personalFields.length,
+              onEdit: onEditPersonalInfo,
+            })}
+
+            {renderProfileSection({
+              title: "Vehicle Information",
+              description:
+                "Driving experience, vehicle and licence details.",
+              completed: vehicleCompleted,
+              completedCount: vehicleFields.filter(Boolean).length,
+              totalCount: vehicleFields.length,
+              onEdit: onEditVehicleDetails,
+            })}
+
+            {renderProfileSection({
+              title: "Required Documents",
+              description:
+                "Driving licence, vehicle RC and identity proof.",
+              completed: documentsCompleted,
+              completedCount: documentFields.filter(Boolean).length,
+              totalCount: documentFields.length,
+              onEdit: onEditDocuments,
+            })}
+          </div>
+
+          {profileComplete ? (
+            <div className="driver-profile-complete-notice">
+              ✓ Your profile information and required documents are complete.
+            </div>
+          ) : (
+            <div className="driver-profile-incomplete-notice">
+              Complete the remaining sections to submit your driver
+              profile for verification.
+            </div>
+          )}
+        </section>
+
+        {/* VERIFICATION NOTICE */}
+
         {!isApproved && (
           <div className="driver-pending-notice">
-            Your account is waiting for verification. You can view
-            available loads, but accepting loads and updating delivery
-            status will be available after approval.
+            {driver?.verificationStatus === "rejected"
+              ? `Your account verification was rejected. ${
+                  driver?.verificationRemarks || "Please review your details and documents."
+                }`
+              : "Your account is waiting for staff verification. You can view available loads, but accepting loads and updating delivery status will be available after approval."}
           </div>
         )}
+
+        {/* LOAD TABS */}
 
         <div className="driver-dashboard-tabs">
           <button
@@ -299,6 +534,8 @@ export default function DriverDashboard({
         {success && (
           <p className="driver-dashboard-success">{success}</p>
         )}
+
+        {/* LOAD LIST */}
 
         {loading ? (
           <p className="driver-dashboard-message">
@@ -335,6 +572,8 @@ export default function DriverDashboard({
             )}
           </>
         )}
+
+        {/* DASHBOARD ACTIONS */}
 
         <button
           type="button"

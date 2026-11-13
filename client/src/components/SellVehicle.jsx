@@ -49,6 +49,14 @@ export default function SellVehicle({
     };
   }, [previews]);
 
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      contactName: user?.name || prev.contactName,
+      contactPhone: user?.phone || prev.contactPhone,
+    }));
+  }, [user?.name, user?.phone]);
+
   function handleChange(e) {
     const { name, value } = e.target;
 

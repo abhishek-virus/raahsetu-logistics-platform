@@ -152,7 +152,7 @@ const getVehicleBuyerInterests = async (req, res) => {
       "interestedBuyers.0": { $exists: true },
     })
       .select(
-        "vehicleType vehicleModel vehicleNumber photos seller sellerRole interestedBuyers createdAt updatedAt"
+        "vehicleType vehicleModel vehicleNumber contactName contactPhone photos seller sellerRole interestedBuyers createdAt updatedAt"
       )
       .populate("seller", "name phone email")
       .sort({ updatedAt: -1 })

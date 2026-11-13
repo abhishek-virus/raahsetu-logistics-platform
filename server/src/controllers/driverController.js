@@ -31,6 +31,14 @@ function driverResponse(driver) {
     licenseNumber: driver.licenseNumber,
     panNumber: driver.panNumber,
     profilePhoto: driver.profilePhoto,
+
+    // Uploaded document information
+    documents: {
+      license: driver.documents?.license || null,
+      vehicleRC: driver.documents?.vehicleRC || null,
+      identity: driver.documents?.identity || null,
+    },
+
     role: driver.role,
     verificationStatus: driver.verificationStatus,
     verificationRemarks: driver.verificationRemarks,
@@ -64,7 +72,7 @@ async function getDriverProfile(req, res) {
       });
     }
 
-    const driver = await Driver.findById(driverId).select("-documents");
+    const driver = await Driver.findById(driverId);
 
     if (!driver) {
       return res.status(404).json({
@@ -229,7 +237,7 @@ async function updateDriverProfile(req, res) {
         new: true,
         runValidators: true,
       }
-    ).select("-documents");
+    );
 
     if (!driver) {
       return res.status(404).json({
@@ -354,7 +362,7 @@ async function updateDriverDetails(req, res) {
         new: true,
         runValidators: true,
       }
-    ).select("-documents");
+    );
 
     if (!driver) {
       return res.status(404).json({

@@ -58,6 +58,7 @@ const driverSchema = new mongoose.Schema(
     experienceYears: {
       type: Number,
       min: 0,
+      max: 60,
       default: 0,
     },
 

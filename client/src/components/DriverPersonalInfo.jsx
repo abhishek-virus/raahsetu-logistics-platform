@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   getDriverProfileApi,
@@ -21,20 +21,53 @@ function DriverPersonalInfo({ driver, onComplete }) {
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
 
+  const photoPreviewRef = useRef("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Load driver profile and previously uploaded photo.
+  // =========================================
+  // PROFILE PHOTO PREVIEW MANAGEMENT
+  // =========================================
+
+  function updatePhotoPreview(url) {
+    const previousUrl = photoPreviewRef.current;
+
+    if (previousUrl && previousUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(previousUrl);
+    }
+
+    photoPreviewRef.current = url;
+    setPhotoPreview(url);
+  }
+
+  useEffect(() => {
+    return () => {
+      const currentUrl = photoPreviewRef.current;
+
+      if (currentUrl && currentUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(currentUrl);
+      }
+    };
+  }, []);
+
+  // =========================================
+  // LOAD DRIVER PROFILE
+  // =========================================
+
   useEffect(() => {
     let isMounted = true;
-    let loadedPhotoUrl = "";
 
     async function loadProfile() {
       try {
         const data = await getDriverProfileApi();
         const profile = data.driver;
+
+        if (!profile) {
+          throw new Error("Driver profile not found.");
+        }
 
         if (!isMounted) return;
 
@@ -43,32 +76,31 @@ function DriverPersonalInfo({ driver, onComplete }) {
           email: profile.email || "",
           address: profile.address || "",
           dateOfBirth: profile.dateOfBirth
-            ? new Date(profile.dateOfBirth)
-                .toISOString()
-                .split("T")[0]
+            ? String(profile.dateOfBirth).slice(0, 10)
             : "",
           gender: profile.gender || "",
           bio: profile.bio || "",
         });
 
-        // Fetch previously uploaded profile photo.
-        try {
-          const photoBlob = await getMyDriverProfilePhotoApi();
+        // Load existing profile photo
+        if (profile.profilePhoto?.filename) {
+          try {
+            const photoBlob = await getMyDriverProfilePhotoApi();
 
-          if (!isMounted) return;
+            if (!isMounted) return;
 
-          loadedPhotoUrl = URL.createObjectURL(photoBlob);
-          setPhotoPreview(loadedPhotoUrl);
-        } catch (photoError) {
-          // A newly registered driver may not have a photo yet.
-          console.log(
-            "No existing driver profile photo:",
-            photoError.message
-          );
+            const photoUrl = URL.createObjectURL(photoBlob);
+            updatePhotoPreview(photoUrl);
+          } catch (photoError) {
+            console.log(
+              "Unable to load existing profile photo:",
+              photoError.message
+            );
+          }
         }
       } catch (err) {
         if (isMounted) {
-          setError(err.message);
+          setError(err.message || "Unable to load driver profile.");
         }
       } finally {
         if (isMounted) {
@@ -81,21 +113,12 @@ function DriverPersonalInfo({ driver, onComplete }) {
 
     return () => {
       isMounted = false;
-
-      if (loadedPhotoUrl) {
-        URL.revokeObjectURL(loadedPhotoUrl);
-      }
     };
   }, []);
 
-  // Revoke previous preview URLs when replaced or component unmounts.
-  useEffect(() => {
-    return () => {
-      if (photoPreview) {
-        URL.revokeObjectURL(photoPreview);
-      }
-    };
-  }, [photoPreview]);
+  // =========================================
+  // FORM CHANGE
+  // =========================================
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -105,6 +128,10 @@ function DriverPersonalInfo({ driver, onComplete }) {
       [name]: value,
     }));
   }
+
+  // =========================================
+  // PROFILE PHOTO CHANGE
+  // =========================================
 
   function handlePhotoChange(e) {
     const file = e.target.files?.[0];
@@ -124,25 +151,27 @@ function DriverPersonalInfo({ driver, onComplete }) {
       setError(
         "Only JPG, PNG and WEBP profile photos are allowed."
       );
+
       e.target.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       setError("Profile photo must be smaller than 5 MB.");
+
       e.target.value = "";
       return;
     }
 
     setProfilePhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
+
+    const previewUrl = URL.createObjectURL(file);
+    updatePhotoPreview(previewUrl);
   }
 
-  async function uploadProfilePhoto() {
-    if (!profilePhoto) return null;
-
-    return uploadDriverProfilePhotoApi(profilePhoto);
-  }
+  // =========================================
+  // FORM SUBMIT
+  // =========================================
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -153,14 +182,20 @@ function DriverPersonalInfo({ driver, onComplete }) {
     try {
       setSaving(true);
 
-      // Save personal information first.
+      // Save personal information
       const data = await updateDriverProfileApi(formData);
+
+      if (!data?.driver) {
+        throw new Error(
+          "Profile update response is incomplete. Please refresh and try again."
+        );
+      }
 
       let updatedDriver = data.driver;
 
-      // Upload profile photo if a new one was selected.
+      // Upload new profile photo if selected
       if (profilePhoto) {
-        const photoData = await uploadProfilePhoto();
+        const photoData = await uploadDriverProfilePhotoApi(profilePhoto);
 
         updatedDriver = {
           ...updatedDriver,
@@ -168,11 +203,7 @@ function DriverPersonalInfo({ driver, onComplete }) {
         };
       }
 
-      setSuccess(
-        profilePhoto
-          ? "Personal information and profile photo saved successfully."
-          : data.message
-      );
+      setSuccess("Personal information saved successfully.");
 
       setProfilePhoto(null);
 
@@ -180,11 +211,15 @@ function DriverPersonalInfo({ driver, onComplete }) {
         onComplete(updatedDriver);
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Unable to save personal information.");
     } finally {
       setSaving(false);
     }
   }
+
+  // =========================================
+  // LOADING
+  // =========================================
 
   if (loading) {
     return (
@@ -198,9 +233,14 @@ function DriverPersonalInfo({ driver, onComplete }) {
     );
   }
 
+  // =========================================
+  // UI
+  // =========================================
+
   return (
     <div className="auth-page">
       <div className="auth-card driver-registration-card">
+
         <div className="auth-brand">
           <span className="brand-mark">R</span>
           <span>RaahSetu</span>
@@ -217,8 +257,11 @@ function DriverPersonalInfo({ driver, onComplete }) {
         </p>
 
         <form onSubmit={handleSubmit}>
-          {/* Profile Photo */}
+
+          {/* PROFILE PHOTO */}
+
           <div className="driver-profile-photo-section">
+
             <div className="driver-profile-photo-preview">
               {photoPreview ? (
                 <img
@@ -250,6 +293,8 @@ function DriverPersonalInfo({ driver, onComplete }) {
             </small>
           </div>
 
+          {/* FULL NAME */}
+
           <label htmlFor="driver-name">
             Full Name
           </label>
@@ -263,6 +308,8 @@ function DriverPersonalInfo({ driver, onComplete }) {
             placeholder="Enter your full name"
             required
           />
+
+          {/* EMAIL */}
 
           <label htmlFor="driver-email">
             Email Address
@@ -278,6 +325,8 @@ function DriverPersonalInfo({ driver, onComplete }) {
             required
           />
 
+          {/* PHONE */}
+
           <label htmlFor="driver-phone">
             Mobile Number
           </label>
@@ -289,6 +338,8 @@ function DriverPersonalInfo({ driver, onComplete }) {
             readOnly
             className="driver-phone-readonly"
           />
+
+          {/* DATE OF BIRTH */}
 
           <label htmlFor="driver-dob">
             Date of Birth
@@ -302,6 +353,8 @@ function DriverPersonalInfo({ driver, onComplete }) {
             onChange={handleChange}
             max={new Date().toISOString().split("T")[0]}
           />
+
+          {/* GENDER */}
 
           <label htmlFor="driver-gender">
             Gender
@@ -319,6 +372,8 @@ function DriverPersonalInfo({ driver, onComplete }) {
             <option value="other">Other</option>
           </select>
 
+          {/* ADDRESS */}
+
           <label htmlFor="driver-address">
             Complete Address
           </label>
@@ -332,6 +387,8 @@ function DriverPersonalInfo({ driver, onComplete }) {
             rows="3"
             required
           />
+
+          {/* BIO */}
 
           <label htmlFor="driver-bio">
             About Yourself
@@ -351,11 +408,19 @@ function DriverPersonalInfo({ driver, onComplete }) {
             {formData.bio.length}/500 characters
           </small>
 
-          {error && <p className="error">{error}</p>}
+          {/* ERROR */}
+
+          {error && (
+            <p className="error">{error}</p>
+          )}
+
+          {/* SUCCESS */}
 
           {success && (
             <p className="auth-success">{success}</p>
           )}
+
+          {/* SUBMIT */}
 
           <button
             type="submit"
@@ -364,11 +429,13 @@ function DriverPersonalInfo({ driver, onComplete }) {
           >
             {saving ? "Saving..." : "Save & Continue"}
           </button>
+
         </form>
 
         <p className="auth-footnote">
           Your information helps us verify your driver profile securely.
         </p>
+
       </div>
     </div>
   );

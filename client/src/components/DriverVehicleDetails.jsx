@@ -15,83 +15,125 @@ function DriverVehicleDetails({ driver, onComplete }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // =========================================
+  // HANDLE INPUT CHANGE
+  // =========================================
+
   function handleChange(e) {
     const { name, value } = e.target;
 
+    const formattedValue = [
+      "panNumber",
+      "vehicleNumber",
+      "licenseNumber",
+    ].includes(name)
+      ? value.toUpperCase()
+      : value;
+
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        name === "panNumber" ||
-        name === "vehicleNumber" ||
-        name === "licenseNumber"
-          ? value.toUpperCase()
-          : value,
+      [name]: formattedValue,
     }));
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
+  // =========================================
+  // VALIDATE FORM
+  // =========================================
 
+  function validateForm() {
     const experience = Number(formData.experienceYears);
 
     if (
+      formData.experienceYears === "" ||
       !Number.isInteger(experience) ||
       experience < 0 ||
       experience > 60
     ) {
-      setError("Please enter valid driving experience (0–60 years).");
-      return;
+      return "Please enter valid driving experience (0–60 years).";
+    }
+
+    if (!formData.vehicleType) {
+      return "Please select your vehicle type.";
+    }
+
+    if (!formData.vehicleModel.trim()) {
+      return "Please enter your vehicle model.";
+    }
+
+    if (!formData.vehicleNumber.trim()) {
+      return "Please enter your vehicle registration number.";
+    }
+
+    if (!formData.licenseNumber.trim()) {
+      return "Please enter your driving licence number.";
     }
 
     const panNumber = formData.panNumber.trim().toUpperCase();
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
     if (panNumber && !panRegex.test(panNumber)) {
-      setError("Please enter a valid PAN number.");
-      return;
+      return "Please enter a valid PAN number.";
     }
 
-    if (!formData.vehicleModel.trim()) {
-      setError("Please enter your vehicle model.");
-      return;
-    }
+    return "";
+  }
 
-    if (!formData.vehicleNumber.trim()) {
-      setError("Please enter your vehicle registration number.");
-      return;
-    }
+  // =========================================
+  // SAVE VEHICLE DETAILS
+  // =========================================
 
-    if (!formData.licenseNumber.trim()) {
-      setError("Please enter your driving licence number.");
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+
+    const validationError = validateForm();
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     try {
       setLoading(true);
 
-      const data = await updateDriverDetailsApi({
-        experienceYears: experience,
+      const payload = {
+        experienceYears: Number(formData.experienceYears),
         vehicleType: formData.vehicleType,
         vehicleModel: formData.vehicleModel.trim(),
         vehicleNumber: formData.vehicleNumber.trim().toUpperCase(),
         licenseNumber: formData.licenseNumber.trim().toUpperCase(),
-        panNumber,
-      });
+        panNumber: formData.panNumber.trim().toUpperCase(),
+      };
 
+      const data = await updateDriverDetailsApi(payload);
+
+      if (!data?.driver) {
+        throw new Error(
+          "Updated driver profile was not returned by the server."
+        );
+      }
+
+      // Pass updated profile to App.jsx
       if (onComplete) {
         onComplete(data.driver);
       }
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.message || "Unable to save vehicle details."
+      );
     } finally {
       setLoading(false);
     }
   }
 
+  // =========================================
+  // UI
+  // =========================================
+
   return (
     <div className="auth-page">
       <section className="auth-card driver-registration-card">
+
         <div className="auth-brand">
           <span className="brand-mark">R</span>
           RaahSetu
@@ -108,6 +150,9 @@ function DriverVehicleDetails({ driver, onComplete }) {
         </p>
 
         <form onSubmit={handleSubmit}>
+
+          {/* DRIVING EXPERIENCE */}
+
           <label htmlFor="experienceYears">
             Driving Experience (Years)
           </label>
@@ -124,6 +169,8 @@ function DriverVehicleDetails({ driver, onComplete }) {
             placeholder="e.g. 3"
             required
           />
+
+          {/* VEHICLE TYPE */}
 
           <label htmlFor="vehicleType">
             Vehicle Type
@@ -142,6 +189,8 @@ function DriverVehicleDetails({ driver, onComplete }) {
             <option value="heavy-truck">Heavy Truck</option>
           </select>
 
+          {/* VEHICLE MODEL */}
+
           <label htmlFor="vehicleModel">
             Vehicle Model
           </label>
@@ -156,6 +205,8 @@ function DriverVehicleDetails({ driver, onComplete }) {
             maxLength="100"
             required
           />
+
+          {/* VEHICLE NUMBER */}
 
           <label htmlFor="vehicleNumber">
             Vehicle Registration Number
@@ -172,6 +223,8 @@ function DriverVehicleDetails({ driver, onComplete }) {
             required
           />
 
+          {/* DRIVING LICENCE */}
+
           <label htmlFor="licenseNumber">
             Driving Licence Number
           </label>
@@ -186,6 +239,8 @@ function DriverVehicleDetails({ driver, onComplete }) {
             maxLength="30"
             required
           />
+
+          {/* PAN NUMBER */}
 
           <label htmlFor="panNumber">
             PAN Number
@@ -206,9 +261,13 @@ function DriverVehicleDetails({ driver, onComplete }) {
             Enter your 10-character PAN number if available.
           </p>
 
+          {/* ERROR */}
+
           {error && (
             <p className="error">{error}</p>
           )}
+
+          {/* SUBMIT */}
 
           <button
             type="submit"
@@ -217,11 +276,13 @@ function DriverVehicleDetails({ driver, onComplete }) {
           >
             {loading ? "Saving Details..." : "Save & Continue"}
           </button>
+
         </form>
 
         <p className="driver-form-note">
           Make sure your vehicle and licence details are accurate.
         </p>
+
       </section>
     </div>
   );

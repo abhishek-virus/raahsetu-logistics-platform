@@ -1,8 +1,8 @@
-
 import "./App.css";
 import { useEffect, useState } from "react";
 
 import {
+  getCustomerProfileApi,
   getDriverProfileApi,
   getMyDriverProfilePhotoApi,
   getStaffDashboardStatsApi,
@@ -50,6 +50,10 @@ export default function App() {
       return "checking-driver-session";
     }
 
+    if (localStorage.getItem("token")) {
+      return "checking-customer-session";
+    }
+
     return "login";
   });
 
@@ -64,6 +68,9 @@ export default function App() {
   const [driver, setDriver] = useState(null);
   const [driverDocuments, setDriverDocuments] = useState(null);
   const [driverProfilePhotoUrl, setDriverProfilePhotoUrl] = useState("");
+
+  // Track whether a driver is editing profile from dashboard
+  const [driverProfileEditMode, setDriverProfileEditMode] = useState(false);
 
   // Staff State
   const [staff, setStaff] = useState(null);
@@ -111,72 +118,59 @@ export default function App() {
       // Driver Session Restoration
       const driverToken = localStorage.getItem("driverToken");
 
-      if (!driverToken) {
-        return;
+      if (driverToken) {
+        try {
+          const response = await getDriverProfileApi();
+          const savedDriver = response.driver;
+
+          if (!savedDriver) {
+            throw new Error("Driver profile not found.");
+          }
+
+          setDriver(savedDriver);
+
+          // Every authenticated driver returns to dashboard.
+          // Profile completion is managed from dashboard.
+          setScreen("driver-dashboard");
+          return;
+        } catch (error) {
+          console.error("Driver session restore failed:", error);
+
+          localStorage.removeItem("driverToken");
+          localStorage.removeItem("driver");
+
+          setDriver(null);
+          setDriverPhone("");
+          setScreen("login");
+          return;
+        }
       }
 
-      try {
-        const response = await getDriverProfileApi();
-        const savedDriver = response.driver;
+      // Customer Session Restoration
+      const customerToken = localStorage.getItem("token");
 
-        if (!savedDriver) {
-          throw new Error("Driver profile not found.");
+      if (customerToken) {
+        try {
+          const response = await getCustomerProfileApi();
+          const savedCustomer = response.customer;
+
+          if (!savedCustomer) {
+            throw new Error("Customer profile not found.");
+          }
+
+          setCustomer(savedCustomer);
+          setPhone(savedCustomer.phone || "");
+          setScreen("booking");
+        } catch (error) {
+          console.error("Customer session restore failed:", error);
+
+          localStorage.removeItem("token");
+          localStorage.removeItem("customer");
+
+          setCustomer(null);
+          setPhone("");
+          setScreen("login");
         }
-
-        setDriver(savedDriver);
-
-        // STEP 1: Check personal information
-        if (
-          !savedDriver.name ||
-          !savedDriver.email ||
-          !savedDriver.address
-        ) {
-          setScreen("driver-registration");
-          return;
-        }
-
-        // STEP 2: Check vehicle information
-        if (
-          savedDriver.experienceYears == null ||
-          !savedDriver.vehicleType ||
-          !savedDriver.vehicleModel ||
-          !savedDriver.vehicleNumber ||
-          !savedDriver.licenseNumber
-        ) {
-          setScreen("driver-vehicle");
-          return;
-        }
-
-        // STEP 3: Check uploaded documents
-        const documents = savedDriver.documents || {};
-
-        const allDocumentsUploaded =
-          documents.license?.filename &&
-          documents.vehicleRC?.filename &&
-          documents.identity?.filename;
-
-        if (!allDocumentsUploaded) {
-          setScreen("driver-documents");
-          return;
-        }
-
-        // STEP 4: Check staff verification status
-        if (savedDriver.verificationStatus !== "approved") {
-          setScreen("driver-welcome");
-          return;
-        }
-
-        // STEP 5: Only approved drivers can access dashboard
-        setScreen("driver-dashboard");
-      } catch (error) {
-        console.error("Driver session restore failed:", error);
-
-        localStorage.removeItem("driverToken");
-        localStorage.removeItem("driver");
-
-        setDriver(null);
-        setDriverPhone("");
-        setScreen("login");
       }
     }
 
@@ -293,57 +287,12 @@ export default function App() {
     setScreen("driver-registration-otp");
   };
 
-  // Route driver according to profile completion
+  // Route every authenticated driver to dashboard
   const routeDriverFromProfile = (profile) => {
     setDriver(profile);
 
-    localStorage.setItem(
-      "driver",
-      JSON.stringify(profile)
-    );
+    localStorage.setItem("driver", JSON.stringify(profile));
 
-    // STEP 1: Personal information
-    if (
-      !profile.name ||
-      !profile.email ||
-      !profile.address
-    ) {
-      setScreen("driver-registration");
-      return;
-    }
-
-    // STEP 2: Vehicle information
-    if (
-      profile.experienceYears == null ||
-      !profile.vehicleType ||
-      !profile.vehicleModel ||
-      !profile.vehicleNumber ||
-      !profile.licenseNumber
-    ) {
-      setScreen("driver-vehicle");
-      return;
-    }
-
-    // STEP 3: Uploaded documents
-    const documents = profile.documents || {};
-
-    const allDocumentsUploaded =
-      documents.license?.filename &&
-      documents.vehicleRC?.filename &&
-      documents.identity?.filename;
-
-    if (!allDocumentsUploaded) {
-      setScreen("driver-documents");
-      return;
-    }
-
-    // STEP 4: Staff verification
-    if (profile.verificationStatus !== "approved") {
-      setScreen("driver-welcome");
-      return;
-    }
-
-    // STEP 5: Only approved drivers can access dashboard
     setScreen("driver-dashboard");
   };
 
@@ -372,12 +321,101 @@ export default function App() {
   const handleDriverRegistrationVerified = (newDriver) => {
     setDriver(newDriver);
     setDriverDocuments(null);
+    setDriverProfileEditMode(false);
+
+    // New driver also enters dashboard directly.
+    setScreen("driver-dashboard");
+  };
+
+  // Open profile sections from dashboard
+  const handleEditDriverPersonalInfo = () => {
+    setDriverProfileEditMode(true);
     setScreen("driver-registration");
   };
 
+  const handleEditDriverVehicleDetails = () => {
+    setDriverProfileEditMode(true);
+    setScreen("driver-vehicle");
+  };
+
+  const handleEditDriverDocuments = () => {
+    setDriverProfileEditMode(true);
+    setScreen("driver-documents");
+  };
+
+  // Personal information completed
+  const handleDriverPersonalInfoCompleted = (updatedDriver) => {
+    setDriver(updatedDriver);
+
+    if (driverProfileEditMode) {
+      setDriverProfileEditMode(false);
+      setScreen("driver-dashboard");
+      return;
+    }
+
+    setScreen("driver-vehicle");
+  };
+
+  // Vehicle details completed
   const handleDriverDetailsCompleted = (updatedDriver) => {
     setDriver(updatedDriver);
+
+    if (driverProfileEditMode) {
+      setDriverProfileEditMode(false);
+      setScreen("driver-dashboard");
+      return;
+    }
+
     setScreen("driver-documents");
+  };
+
+  // Documents completed
+  const handleDriverDocumentsCompleted = async (result) => {
+    setDriverDocuments(result);
+
+    try {
+      // Refresh complete profile after document upload
+      const response = await getDriverProfileApi();
+
+      if (response?.driver) {
+        setDriver(response.driver);
+        localStorage.setItem(
+          "driver",
+          JSON.stringify(response.driver)
+        );
+      } else if (result?.driver) {
+        setDriver(result.driver);
+      } else {
+        setDriver((prev) => ({
+          ...prev,
+          ...(result?.documents
+            ? { documents: result.documents }
+            : {}),
+          verificationStatus:
+            result?.verificationStatus ||
+            prev?.verificationStatus,
+        }));
+      }
+    } catch (error) {
+      console.error(
+        "Unable to refresh driver profile after document upload:",
+        error
+      );
+
+      setDriver((prev) => ({
+        ...prev,
+        ...(result?.documents
+          ? { documents: result.documents }
+          : {}),
+        verificationStatus:
+          result?.verificationStatus ||
+          prev?.verificationStatus,
+      }));
+    }
+
+    // Return to dashboard instead of review screen
+    setDriverProfileEditMode(false);
+    setScreen("driver-dashboard");
   };
 
   const handleDriverLogout = () => {
@@ -387,6 +425,7 @@ export default function App() {
     setDriver(null);
     setDriverPhone("");
     setDriverDocuments(null);
+    setDriverProfileEditMode(false);
     setScreen("login");
   };
 
@@ -411,9 +450,9 @@ export default function App() {
   // MAIN RENDER
   // =========================================
 
-  
   return (
     <div className="app">
+
       {/* =====================================
           SESSION RESTORATION
       ===================================== */}
@@ -447,6 +486,23 @@ export default function App() {
 
             <p className="auth-description">
               Please wait while we securely restore your driver account.
+            </p>
+          </section>
+        </main>
+      )}
+
+      {screen === "checking-customer-session" && (
+        <main className="auth-page">
+          <section className="auth-card">
+            <div className="auth-brand">
+              <span className="brand-mark">R</span>
+              RaahSetu
+            </div>
+
+            <h2>Restoring your session...</h2>
+
+            <p className="auth-description">
+              Please wait while we securely restore your customer account.
             </p>
           </section>
         </main>
@@ -585,10 +641,7 @@ export default function App() {
       {screen === "driver-registration" && driver && (
         <DriverPersonalInfo
           driver={driver}
-          onComplete={(updatedDriver) => {
-            setDriver(updatedDriver);
-            setScreen("driver-vehicle");
-          }}
+          onComplete={handleDriverPersonalInfoCompleted}
         />
       )}
 
@@ -605,19 +658,13 @@ export default function App() {
 
       {screen === "driver-documents" && driver && (
         <DriverDocuments
-          onComplete={(result) => {
-            setDriver((prev) => ({
-              ...prev,
-              verificationStatus: result.verificationStatus,
-            }));
-
-            setDriverDocuments(result);
-            setScreen("driver-review");
-          }}
+          onComplete={handleDriverDocumentsCompleted}
         />
       )}
 
-      {/* DRIVER DASHBOARD */}
+      {/* =====================================
+          DRIVER DASHBOARD
+      ===================================== */}
 
       {screen === "driver-dashboard" && driver && (
         <DriverDashboard
@@ -626,6 +673,11 @@ export default function App() {
           onFinanceEnquiry={() => setScreen("finance-enquiry")}
           onBuyVehicles={() => setScreen("buy-vehicles")}
           onSellVehicle={() => setScreen("sell-vehicle")}
+
+          // Profile completion navigation
+          onEditPersonalInfo={handleEditDriverPersonalInfo}
+          onEditVehicleDetails={handleEditDriverVehicleDetails}
+          onEditDocuments={handleEditDriverDocuments}
         />
       )}
 
@@ -1183,9 +1235,9 @@ export default function App() {
             <button
               type="button"
               className="btn-confirm review-finish-btn"
-              onClick={() => setScreen("driver-welcome")}
+              onClick={() => setScreen("driver-dashboard")}
             >
-              Finish Review <span>→</span>
+              Go to Dashboard <span>→</span>
             </button>
 
             <p className="auth-footnote">

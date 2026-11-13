@@ -122,9 +122,9 @@ exports.createVehicleListing = async (req, res) => {
     const cleanContactPhone = contactPhone.trim();
 
     if (
-      cleanVehicleModel.length > 150 ||
+      cleanVehicleModel.length > 100 ||
       cleanVehicleNumber.length > 30 ||
-      cleanRcNumber.length > 50 ||
+      cleanRcNumber.length > 30 ||
       cleanContactName.length > 100
     ) {
       await cleanupUploadedPhotos(req.files);

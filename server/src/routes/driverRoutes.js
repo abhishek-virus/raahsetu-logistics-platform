@@ -102,7 +102,6 @@ router.get(
   "/loads",
   authMiddleware,
   driverOnly,
-  approvedDriverOnly,
   getAvailableLoads
 );
 

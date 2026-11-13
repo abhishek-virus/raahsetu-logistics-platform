@@ -14,7 +14,7 @@ const router = express.Router();
 
 // Allow only customers and drivers
 function requesterOnly(req, res, next) {
-  if (!["customer", "driver"].includes(req.user.role)) {
+  if (!req.user || !["customer", "driver"].includes(req.user.role)) {
     return res.status(403).json({
       message: "Access denied.",
     });

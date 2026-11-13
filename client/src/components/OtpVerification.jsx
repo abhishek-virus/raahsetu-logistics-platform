@@ -49,8 +49,12 @@ export default function OtpVerification({ phone, onVerified, onBack }) {
       localStorage.setItem("customer", JSON.stringify(data.customer));
 
       onVerified(data.customer);
-    } catch {
-      setError("Unable to verify OTP. Check your server connection.");
+    } catch (error) {
+      console.error("OTP verification failed:", error);
+
+      setError(
+        error.message || "Unable to verify OTP. Please try again."
+      );
     } finally {
       setLoading(false);
     }
