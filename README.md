@@ -366,23 +366,6 @@ node src/scripts/createStaff.js
 
 The script prompts for a name, Gmail address, and password. It hashes the password before saving the account. The password must be at least eight characters.
 
-## Available Scripts
-
-| Package | Command | Description |
-| --- | --- | --- |
-| `client` | `npm run dev` | Start the Vite development server. |
-| `client` | `npm run build` | Build the frontend for production into `client/dist/`. |
-| `client` | `npm run preview` | Preview the built frontend locally. |
-| `client` | `npm run lint` | Run ESLint over the client project. |
-| `server` | `npm run dev` | Start the Express server with Nodemon. |
-| `server` | `npm start` | Start the Express server with Node.js. |
-
-There is no root package script and neither package currently defines a test script.
-
-## Screenshots
-
-No application screenshots are included in the repository. Add screenshots here when they are available.
-
 ## Future Improvements
 
 The following are possible next steps, not implemented features:
@@ -392,11 +375,3 @@ The following are possible next steps, not implemented features:
 - Add automated backend and frontend test suites.
 - Configure the frontend API base URL for non-local deployments.
 - Consider durable object storage for uploads when deploying multiple backend instances.
-
-## Contributors
-
-No contributor names are documented in the repository. Add project contributors here when confirmed.
-
-## License
-
-`server/package.json` declares the ISC license. The repository does not currently include a top-level `LICENSE` file, so the project-wide license has not been confirmed.
