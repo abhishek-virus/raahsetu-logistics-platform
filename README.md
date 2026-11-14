@@ -326,46 +326,6 @@ Mongoose creates the following default collections from the models in `server/sr
 
 All models use Mongoose timestamps. Upload metadata is stored in MongoDB; uploaded files themselves are stored under the backend process's `uploads/` directory.
 
-## Installation and Setup
-
-### Prerequisites
-
-- Node.js `^20.19.0` or `>=22.12.0`. These versions satisfy the backend and Vite 8 engine requirements.
-- npm
-- A MongoDB instance, local or hosted
-- Git
-
-### Clone the repository
-
-Replace `<repository-url>` with the URL for your repository:
-
-```bash
-git clone <repository-url>
-cd raahsetu-logistics-platform
-```
-
-### Install dependencies
-
-The frontend and backend have separate lockfiles and dependencies:
-
-```bash
-cd client
-npm ci
-
-cd ../server
-npm ci
-```
-
-### Configure MongoDB and environment
-
-Make sure your MongoDB instance is running or that your hosted database is reachable. From the `server/` directory, copy the safe template and edit the local values:
-
-```bash
-cp .env.example .env
-```
-
-Set `MONGO_URI` to your MongoDB connection string and set a private `JWT_SECRET`. Do not commit `server/.env`. The root `.gitignore` excludes `.env` files while allowing `.env.example` templates.
-
 ## Environment Variables
 
 | Variable | Required | Purpose |
