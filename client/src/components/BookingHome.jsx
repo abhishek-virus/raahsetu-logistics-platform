@@ -10,6 +10,7 @@ export default function BookingHome({
   onFinanceEnquiry,
   onBuyVehicles,
   onSellVehicle,
+  onBackToDashboard,
 }) {
   const [fromLocation, setFromLocation] = useState(
     booking?.fromLocation || ""
@@ -21,6 +22,7 @@ export default function BookingHome({
 
   const customerName = customer?.name?.trim() || "Welcome!";
   const phone = customer?.phone || "";
+
   const initials = customer?.name?.trim()
     ? customer.name.trim().charAt(0).toUpperCase()
     : "C";
@@ -66,6 +68,14 @@ export default function BookingHome({
 
           <button
             type="button"
+            className="finance-button"
+            onClick={onBackToDashboard}
+          >
+            ← Back to Dashboard
+          </button>
+
+          <button
+            type="button"
             className="logout-button"
             onClick={onViewBookings}
           >
@@ -95,6 +105,14 @@ export default function BookingHome({
           >
             Sell Vehicle
           </button>
+
+          <button
+            type="button"
+            className="logout-button"
+            onClick={onLogout}
+          >
+            Logout
+          </button>
         </div>
       </header>
 
@@ -116,7 +134,10 @@ export default function BookingHome({
           </p>
         </div>
 
-        <section className="customer-info" aria-label="Customer information">
+        <section
+          className="customer-info"
+          aria-label="Customer information"
+        >
           <div className="customer-avatar" aria-hidden="true">
             {initials}
           </div>
@@ -132,23 +153,32 @@ export default function BookingHome({
           </span>
         </section>
 
-        <form className="location-form" onSubmit={handleSubmit} noValidate>
+        <form
+          className="location-form"
+          onSubmit={handleSubmit}
+          noValidate
+        >
           <div className="form-heading">
             <div>
               <h2>Plan your route</h2>
               <p>Where should we collect and deliver?</p>
             </div>
+
             <span className="step-indicator">STEP 01</span>
           </div>
 
           <div className="route-fields">
             <div className="location-field">
-              <div className="route-marker pickup-marker" aria-hidden="true">
+              <div
+                className="route-marker pickup-marker"
+                aria-hidden="true"
+              >
                 <span />
               </div>
 
               <div className="field-content">
                 <label htmlFor="pickup">Pickup location</label>
+
                 <input
                   id="pickup"
                   name="pickup"
@@ -156,31 +186,42 @@ export default function BookingHome({
                   placeholder="e.g. Madhubani, Bihar"
                   value={fromLocation}
                   onChange={(e) =>
-                    handleLocationChange(setFromLocation, e.target.value)
+                    handleLocationChange(
+                      setFromLocation,
+                      e.target.value
+                    )
                   }
                   maxLength={150}
                   autoComplete="address-level2"
                   aria-invalid={Boolean(error)}
                 />
+
                 <span className="field-hint">
                   Where should we collect your goods?
                 </span>
               </div>
             </div>
 
-            <div className="route-connector" aria-hidden="true">
+            <div
+              className="route-connector"
+              aria-hidden="true"
+            >
               <span />
               <span />
               <span />
             </div>
 
             <div className="location-field">
-              <div className="route-marker drop-marker" aria-hidden="true">
+              <div
+                className="route-marker drop-marker"
+                aria-hidden="true"
+              >
                 <span />
               </div>
 
               <div className="field-content">
                 <label htmlFor="drop">Drop location</label>
+
                 <input
                   id="drop"
                   name="drop"
@@ -188,12 +229,16 @@ export default function BookingHome({
                   placeholder="e.g. Gurugram, Haryana"
                   value={toLocation}
                   onChange={(e) =>
-                    handleLocationChange(setToLocation, e.target.value)
+                    handleLocationChange(
+                      setToLocation,
+                      e.target.value
+                    )
                   }
                   maxLength={150}
                   autoComplete="off"
                   aria-invalid={Boolean(error)}
                 />
+
                 <span className="field-hint">
                   Where should we deliver your goods?
                 </span>
@@ -226,12 +271,21 @@ export default function BookingHome({
             aria-labelledby="confirmation-title"
           >
             <div className="confirmation-top">
-              <span className="confirmation-icon" aria-hidden="true">
+              <span
+                className="confirmation-icon"
+                aria-hidden="true"
+              >
                 ✓
               </span>
+
               <div>
-                <p className="confirmation-label">LOCATIONS CONFIRMED</p>
-                <h2 id="confirmation-title">Your route is ready</h2>
+                <p className="confirmation-label">
+                  LOCATIONS CONFIRMED
+                </p>
+
+                <h2 id="confirmation-title">
+                  Your route is ready
+                </h2>
               </div>
             </div>
 
@@ -240,8 +294,12 @@ export default function BookingHome({
                 <span className="confirmed-dot pickup-marker">
                   <span />
                 </span>
+
                 <div>
-                  <span className="confirmed-label">PICKUP FROM</span>
+                  <span className="confirmed-label">
+                    PICKUP FROM
+                  </span>
+
                   <p>{booking.fromLocation}</p>
                 </div>
               </div>
@@ -250,8 +308,12 @@ export default function BookingHome({
                 <span className="confirmed-dot drop-marker">
                   <span />
                 </span>
+
                 <div>
-                  <span className="confirmed-label">DELIVER TO</span>
+                  <span className="confirmed-label">
+                    DELIVER TO
+                  </span>
+
                   <p>{booking.toLocation}</p>
                 </div>
               </div>

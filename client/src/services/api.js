@@ -96,6 +96,17 @@ export function getCustomerProfileApi() {
   });
 }
 
+// Update logged-in customer profile
+export function updateCustomerProfileApi(profileData) {
+  return apiRequest("/customer/profile", {
+    method: "PUT",
+    body: profileData,
+    auth: true,
+    tokenType: "customer",
+  });
+}
+
+
 // =====================================
 // PHASE 2: CUSTOMER BOOKING APIs
 // =====================================

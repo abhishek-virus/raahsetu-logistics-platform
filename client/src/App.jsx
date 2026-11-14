@@ -11,6 +11,8 @@ import {
 // Customer Components
 import CustomerLogin from "./components/CustomerLogin";
 import OtpVerification from "./components/OtpVerification";
+import CustomerDashboard from "./components/CustomerDashboard";
+import CustomerProfile from "./components/CustomerProfile";
 import BookingHome from "./components/BookingHome";
 import BookTransport from "./components/BookTransport";
 import MyBookings from "./components/MyBookings";
@@ -160,7 +162,7 @@ export default function App() {
 
           setCustomer(savedCustomer);
           setPhone(savedCustomer.phone || "");
-          setScreen("booking");
+          setScreen("customer-dashboard");
         } catch (error) {
           console.error("Customer session restore failed:", error);
 
@@ -239,7 +241,8 @@ export default function App() {
 
   const handleVerified = (verifiedCustomer) => {
     setCustomer(verifiedCustomer);
-    setScreen("booking");
+    setPhone(verifiedCustomer.phone);
+    setScreen("customer-dashboard");
   };
 
   const handleBookingConfirm = ({
@@ -705,6 +708,7 @@ export default function App() {
           onFinanceEnquiry={() => setScreen("finance-enquiry")}
           onBuyVehicles={() => setScreen("buy-vehicles")}
           onSellVehicle={() => setScreen("sell-vehicle")}
+          onBackToDashboard={() => setScreen("customer-dashboard")}
         />
       )}
 
@@ -712,8 +716,37 @@ export default function App() {
 
       {screen === "my-bookings" && customer && (
         <MyBookings
-          onBack={() => setScreen("booking")}
+          onBack={() => setScreen("customer-dashboard")}
           onLogout={handleLogout}
+        />
+      )}
+
+      {/* CUSTOMER DASHBOARD */}
+      {screen === "customer-dashboard" && customer && (
+        <CustomerDashboard
+          customer={customer}
+          onLogout={handleLogout}
+          onNavigate={(section) => {
+            if (section === "dashboard") {
+              setScreen("customer-dashboard");
+            } else if (section === "transport") {
+              setScreen("booking");
+            } else {
+              setScreen(section);
+            }
+          }}
+        />
+      )}
+
+      {/* CUSTOMER PROFILE */}
+
+      {screen === "customer-profile" && customer && (
+        <CustomerProfile
+          customer={customer}
+          onBack={() => setScreen("customer-dashboard")}
+          onProfileUpdated={(updatedCustomer) => {
+            setCustomer(updatedCustomer);
+          }}
         />
       )}
 
@@ -736,7 +769,7 @@ export default function App() {
           user={customer || driver}
           tokenType={customer ? "customer" : "driver"}
           onBack={() =>
-            setScreen(customer ? "booking" : "driver-dashboard")
+            setScreen(customer ? "customer-dashboard" : "driver-dashboard")
           }
         />
       )}
@@ -747,7 +780,7 @@ export default function App() {
         <BuyVehicles
           tokenType={customer ? "customer" : "driver"}
           onBack={() =>
-            setScreen(customer ? "booking" : "driver-dashboard")
+            setScreen(customer ? "customer-dashboard" : "driver-dashboard")
           }
         />
       )}
@@ -759,7 +792,7 @@ export default function App() {
           user={customer || driver}
           tokenType={customer ? "customer" : "driver"}
           onBack={() =>
-            setScreen(customer ? "booking" : "driver-dashboard")
+            setScreen(customer ? "customer-dashboard" : "driver-dashboard")
           }
         />
       )}
